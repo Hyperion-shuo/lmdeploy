@@ -659,6 +659,8 @@ class GenerateReqOutput(BaseModel):
 
 
 class AbortRequest(BaseModel):
+    # Colocated training waits for the request handle to leave the engine.
+    wait_for_completion: bool = False
     # Whether to abort all requests
     abort_all: bool = False
     # The finished reason data

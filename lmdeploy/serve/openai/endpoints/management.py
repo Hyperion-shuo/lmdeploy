@@ -246,6 +246,24 @@ def register(router: APIRouter, server_context) -> None:
                     HTTPStatus.BAD_REQUEST,
                     f'Session {request.session_id} not found.')
             await session.async_abort()
+            if request.wait_for_completion and session._active is not None:
+                await session._active.wait()
             session_mgr = server_context.session_manager
             session_mgr.remove(session)
         return Response(status_code=200)
+
+    @router.get('/generation_status')
+    async def generation_status():
+        """Report engine work, independently of the HTTP request registry."""
+        engine = server_context.async_engine
+        health = await engine.engine.get_health_status()
+        metrics = health['schedule_metrics']
+        dispatched = server_context.session_manager.request_handle_pool.num_dispatched
+        active = metrics.active_seqs if metrics is not None else None
+        waiting = metrics.waiting_seqs if metrics is not None else None
+        return JSONResponse(content={
+            'alive': health['alive'], 'dispatched': dispatched,
+            'active': active, 'waiting': waiting,
+            'idle': bool(health['alive'] and dispatched == 0
+                         and active == 0 and waiting == 0),
+        })
